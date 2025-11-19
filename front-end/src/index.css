@@ -1,0 +1,10 @@
+
+@import "tailwindcss";
+
+
+.button-white-icon:hover svg {
+  color: white; 
+}
+.button-white-icon:hover svg path {
+  fill: white; 
+}
