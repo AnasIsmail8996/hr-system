@@ -1,38 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { assets } from "../../assets/assets_frontend/assets.js";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { SearchOutlined } from "@ant-design/icons";
 import alertIcon from "../images/Frame 33853.png";
+import { useAuth } from '../../hooks/useAuth.js'
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user, logout } = useAuth(); // useAuth se user aur logout le lo
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
-  }, []);
-
-  const logout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    setUser(null);
-    navigate("/");
-  };
 
   const renderUserMenu = () => (
     <div className="relative cursor-pointer flex items-center gap-2">
-      <img
-        src={assets.about_image}
-        alt="User"
-        className="w-10 h-10 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-400 transition-all"
-      />
-      <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+      {user?.imageUrl ? (
+        <img
+          src={user.imageUrl}
+          alt={user.name}
+          className="w-10 h-10 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-400 transition-all"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white">
+          {user?.name?.charAt(0).toUpperCase()}
+        </div>
+      )}
       <div className="flex flex-col justify-center items-start ml-2">
-        <h4 className="text-sm font-medium">Anas Ismail</h4>
-        <span className="text-xs text-gray-500">Business Owner</span>
+        <h4 className="text-sm font-medium">{user?.name}</h4>
+        <span className="text-xs text-gray-500">{user?.role}</span>
       </div>
+      <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
     </div>
   );
 
@@ -43,9 +37,7 @@ const Navbar = () => {
         <h4 className="text-lg font-bold">Admin</h4>
       </div>
 
-     
       <div className="hidden md:flex flex-1 items-center justify-end gap-6 mx-8">
-      
         <div className="relative flex-1 max-w-[500px]">
           <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -55,7 +47,6 @@ const Navbar = () => {
           />
         </div>
 
-     
         <div className="flex items-center gap-4">
           <img
             src={alertIcon}

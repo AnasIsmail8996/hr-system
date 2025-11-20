@@ -1,53 +1,85 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
-
-const initialUserData = {
-  firstName: "Brown",
-  lastName: "Martin",
-  email: "brownmartin@gmail.com",
-  mobileNumber: "0806 123 7890",
-  gender: "Male",
-};
+import { useAuth } from "../../hooks/useAuth";
+import axios from "axios";
 
 const Profile = () => {
-  const [userData, setUserData] = useState(initialUserData);
+  const { user, token, backEndUrl, getSingleUser } = useAuth();
+  console.log("USER FROM CONTEXT ===>", user);
+
+  const [pending, setPending] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [pendingChanges, setPendingChanges] = useState(initialUserData);
   const [statusMessage, setStatusMessage] = useState({ text: "", type: "" });
+  const imageRef = useRef();
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setPendingChanges((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleGenderChange = (gender) => {
-    if (isEditing) {
-      setPendingChanges((prev) => ({ ...prev, gender }));
-    }
-  };
-
+  // Show temporary status message
   const showMessage = (text, type = "success") => {
     setStatusMessage({ text, type });
     setTimeout(() => setStatusMessage({ text: "", type: "" }), 3000);
   };
 
-  const handleSaveChanges = () => {
-    if (!pendingChanges.firstName || !pendingChanges.email) {
-      showMessage("Please fill in all required fields.", "error");
-      return;
-    }
+  // Initialize form with user data
+  useEffect(() => {
+    if (user) setPending(user);
+  }, [user]);
 
-    setUserData(pendingChanges);
+  // Handle form input changes
+  const handleChange = (e) => {
+    setPending({ ...pending, [e.target.name]: e.target.value });
+  };
+
+  // Handle gender selection
+  const handleGenderChange = (gender) => {
+    if (isEditing) setPending({ ...pending, gender });
+  };
+
+  // Update profile
+ const updateProfile = async () => {
+  try {
+    const res = await axios.put(
+      `${backEndUrl}/user/update-profile/${user.id}`, 
+      {
+        name: pending.name,
+        email: pending.email,
+        role: pending.role,
+        password: pending.password || "",
+        imageUrl: pending.imageUrl || ""
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    showMessage("Profile Updated Successfully!", "success");
+    getSingleUser(user.id); 
     setIsEditing(false);
-    showMessage("Profile updated successfully!", "success");
+  } catch (err) {
+    console.log(err.response?.data || err);
+    showMessage("Failed to update!", "error");
+  }
+};
+
+  const uploadImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+    const res = await axios.post(`${backEndUrl}/api/upload`, formData, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+      setPending({ ...pending, imageUrl: res.data.url });
+    } catch (err) {
+      showMessage("Image upload failed", "error");
+    }
   };
 
-  const handleEditToggle = () => {
-    if (isEditing) {
-      setPendingChanges(userData);
-    }
-    setIsEditing(!isEditing);
-  };
+  if (!pending) return <p>Loading...</p>;
 
   const statusClasses =
     statusMessage.type === "success"
@@ -56,7 +88,6 @@ const Profile = () => {
 
   return (
     <div className="w-full">
-
       {statusMessage.text && (
         <div
           className={`fixed top-4 right-4 z-50 p-4 border-l-4 rounded shadow-lg ${statusClasses}`}
@@ -71,41 +102,38 @@ const Profile = () => {
       <section className="bg-white p-6 rounded-xl shadow-lg mb-8 flex flex-col sm:flex-row items-center">
         <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500 shadow-md">
           <img
-            src="https://placehold.co/128x128/3B82F6/FFFFFF?text=User"
+            src={
+              pending?.imageUrl ||
+              "https://placehold.co/128x128/3B82F6/FFFFFF?text=User"
+            }
             alt="User"
+            ref={imageRef}
             className="w-full h-full object-cover"
           />
         </div>
 
         <div className="ml-0 mt-4 sm:ml-6 sm:mt-0 text-center sm:text-left">
-          <p className="text-gray-500 text-sm mb-2">800x800 px recommended</p>
-          <button
-            onClick={() =>
-              showMessage("Upload functionality is not implemented yet.", "error")
-            }
+          <p className="text-gray-500 text-sm mb-2">Upload Profile Image</p>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={uploadImage}
             disabled={!isEditing}
-            className={`flex items-center text-blue-600 py-2 px-3 rounded-lg ${
-              isEditing ? "hover:bg-blue-50" : "opacity-50 cursor-not-allowed"
-            }`}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Upload new photo
-          </button>
+          />
         </div>
       </section>
 
       {/* Form */}
       <section className="bg-white p-8 rounded-xl shadow-lg">
         <form className="space-y-6">
-          {/* First + Last Name */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="font-semibold text-gray-700">First Name</label>
+              <label className="font-semibold text-gray-700">Name</label>
               <input
                 type="text"
-                name="firstName"
-                value={pendingChanges.firstName}
-                onChange={handleInputChange}
+                name="name"
+                value={pending.name || ""}
+                onChange={handleChange}
                 disabled={!isEditing}
                 className={`w-full p-3 border rounded-lg ${
                   isEditing ? "border-blue-400" : "border-gray-200 bg-gray-50"
@@ -114,12 +142,14 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="font-semibold text-gray-700">Last Name</label>
+              <label className="font-semibold text-gray-700">
+                Company Name
+              </label>
               <input
                 type="text"
-                name="lastName"
-                value={pendingChanges.lastName}
-                onChange={handleInputChange}
+                name="companyName"
+                value={pending.companyName || ""}
+                onChange={handleChange}
                 disabled={!isEditing}
                 className={`w-full p-3 border rounded-lg ${
                   isEditing ? "border-blue-400" : "border-gray-200 bg-gray-50"
@@ -128,15 +158,14 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Email + Phone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div>
-              <label className="font-semibold text-gray-700">Email Address</label>
+              <label className="font-semibold text-gray-700">Email</label>
               <input
                 type="email"
                 name="email"
-                value={pendingChanges.email}
-                onChange={handleInputChange}
+                value={pending.email || ""}
+                onChange={handleChange}
                 disabled={!isEditing}
                 className={`w-full p-3 border rounded-lg ${
                   isEditing ? "border-blue-400" : "border-gray-200 bg-gray-50"
@@ -145,12 +174,26 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="font-semibold text-gray-700">Mobile Number</label>
+              <label className="font-semibold text-gray-700">Password</label>
+              <input
+                type="password"
+                name="password"
+                placeholder="Enter new password"
+                onChange={handleChange}
+                disabled={!isEditing}
+                className={`w-full p-3 border rounded-lg ${
+                  isEditing ? "border-blue-400" : "border-gray-200 bg-gray-50"
+                }`}
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-gray-700">Role</label>
               <input
                 type="text"
-                name="mobileNumber"
-                value={pendingChanges.mobileNumber}
-                onChange={handleInputChange}
+                name="role"
+                value={pending.role || ""}
+                onChange={handleChange}
                 disabled={!isEditing}
                 className={`w-full p-3 border rounded-lg ${
                   isEditing ? "border-blue-400" : "border-gray-200 bg-gray-50"
@@ -159,8 +202,7 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Gender */}
-          <div>
+          <div className="mt-4">
             <label className="font-semibold text-gray-700">Gender</label>
             <div className="flex space-x-3 mt-2">
               {["Male", "Female"].map((gender) => (
@@ -170,7 +212,7 @@ const Profile = () => {
                   onClick={() => handleGenderChange(gender)}
                   disabled={!isEditing}
                   className={`px-6 py-2 rounded-lg border-2 ${
-                    pendingChanges.gender === gender
+                    pending.gender === gender
                       ? "bg-blue-600 text-white border-blue-600"
                       : "bg-white border-gray-300 text-gray-700"
                   } ${!isEditing && "opacity-70 cursor-not-allowed"}`}
@@ -182,19 +224,21 @@ const Profile = () => {
           </div>
         </form>
 
-        {/* Buttons */}
         <div className="mt-10 border-t pt-6 flex space-x-4">
           {isEditing ? (
             <>
               <button
-                onClick={handleSaveChanges}
+                onClick={updateProfile}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg"
               >
                 Save Changes
               </button>
 
               <button
-                onClick={handleEditToggle}
+                onClick={() => {
+                  setPending(user);
+                  setIsEditing(false);
+                }}
                 className="px-6 py-3 bg-white border rounded-lg"
               >
                 Cancel
@@ -202,7 +246,7 @@ const Profile = () => {
             </>
           ) : (
             <button
-              onClick={handleEditToggle}
+              onClick={() => setIsEditing(true)}
               className="px-6 py-3 bg-blue-50 text-blue-600 rounded-lg"
             >
               Edit Profile

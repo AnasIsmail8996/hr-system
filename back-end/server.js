@@ -6,6 +6,8 @@ import dbConnection from "./db/config.js";
 import userRoutes from "./routes/userRoutes.js";
 import cors from "cors"
 import CustomerRoutes from "./routes/customerRoutes.js";
+import productsRouter from "./routes/productsRoute.js";
+import imagesRoute from "./routes/imageRoutes.js";
 const app= express();
 
 app.use(express.json())
@@ -25,8 +27,8 @@ dbConnection()
 
 app.use('/api/user', userRoutes)
 app.use('/api/customer', CustomerRoutes)
-
-
+app.use('/api/product', productsRouter)
+app.use("/api", imagesRoute);
 const PORT=process.env.PORT || 3000
 
 app.listen(PORT, ()=> console.log(`server   is running on ${PORT} `))
